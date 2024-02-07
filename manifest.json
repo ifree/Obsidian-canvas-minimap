@@ -1,7 +1,7 @@
 {
 	"id": "obsidian-canvas-minimap",
 	"name": "Obsidian canvas minimap",
-	"version": "1.0.6",
+	"version": "1.0.7",
 	"minAppVersion": "0.15.0",
 	"description": "Obsidian canvas minimap.",
 	"author": "Frei Zhang",
