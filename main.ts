@@ -36,7 +36,7 @@ class BoundingBox {
 		this.max_x = max_x
 		this.max_y = max_y
 	}
-	static fromRect(bbox:SVGRect) {
+	static fromRect(bbox: SVGRect) {
 		return new BoundingBox(bbox.x, bbox.y, bbox.x + bbox.width, bbox.y + bbox.height)
 	}
 	width() {
@@ -58,6 +58,7 @@ interface CanvasMinimapSettings {
 	height: number;
 	margin: number;
 	fontSize: number;
+	fontColor: string;
 	side: MinimapSide;
 	enabled: boolean;
 	backgroundColor: string;
@@ -70,6 +71,7 @@ const DEFAULT_SETTINGS: CanvasMinimapSettings = {
 	height: 300,
 	margin: 100,
 	fontSize: 10,
+	fontColor: 'white',
 	side: 'bottom-right',
 	enabled: true,
 	backgroundColor: '#f3f0e933',
@@ -146,7 +148,7 @@ export default class CanvasMinimap extends Plugin {
 		// clear the svg		
 		svg.selectAll('*').remove();
 
-		let bbox:BoundingBox = new BoundingBox();
+		let bbox: BoundingBox = new BoundingBox();
 		let groups: Map<string, any> = new Map()
 		let children: Map<string, any> = new Map()
 		nodes.forEach((node: any) => {
@@ -201,7 +203,7 @@ export default class CanvasMinimap extends Plugin {
 					.attr("y", n.y)
 					.attr("text-anchor", "left")
 					.attr("alignment-baseline", "left")
-					.attr("fill", "white")
+					.attr("fill", this.settings.fontColor)
 					.attr("font-size", font_size)
 					.attr("font-weight", "bold")
 
@@ -333,26 +335,26 @@ export default class CanvasMinimap extends Plugin {
 					}
 					let svg_nodes = Array.from(svg.selectAll('rect').nodes())
 
-					let target_nodes = svg_nodes.filter((n: any, i:Number) => {
+					let target_nodes = svg_nodes.filter((n: any, i: Number) => {
 						let bbox = BoundingBox.fromRect(n.getBBox())
 						return bbox.contains(new Vector2(x, y))
 					}).map((n: any) => active_canvas.nodes?.get(n.id))
-					
-					if(target_nodes.length > 0){
+
+					if (target_nodes.length > 0) {
 						// focus to nearest node
 						let bbox = target_nodes[0].bbox
 						let distSq = Vector2.lenSq(new Vector2(bbox.minX - x, bbox.minY - y))
-						for(let n of target_nodes){
+						for (let n of target_nodes) {
 							let current_bbox = n.bbox
 							let current_distSq = Vector2.lenSq(new Vector2(current_bbox.minX - x, current_bbox.minY - y))
-							if(current_distSq < distSq){
+							if (current_distSq < distSq) {
 								distSq = current_distSq
 								bbox = current_bbox
 							}
 						}
 						active_canvas?.zoomToBbox(bbox)
 					}
-					
+
 				})
 				container.on('click', (e: any) => {
 					// locate rect of minimap
@@ -431,6 +433,17 @@ class CanvasMinimapSettingTab extends PluginSettingTab {
 					this.plugin.settings.fontSize = parseInt(value);
 					await this.plugin.saveSettings();
 				}));
+
+		new Setting(containerEl)
+			.setName('Font Color')
+			.setDesc('Font color of the minimap')
+			.addText(text => text
+				.setValue(this.plugin.settings.fontColor)
+				.onChange(async (value) => {
+					this.plugin.settings.fontColor = value;
+					await this.plugin.saveSettings();
+				}));
+
 
 		new Setting(containerEl)
 			.setName('Side')

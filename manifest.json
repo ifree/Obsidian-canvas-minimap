@@ -5,7 +5,7 @@
 	"minAppVersion": "0.15.0",
 	"description": "Obsidian canvas minimap.",
 	"author": "Frei Zhang",
-	"authorUrl": "",
+	"authorUrl": "https://github.com/ifree/Obsidian-canvas-minimap",
 	"fundingUrl": "",
 	"isDesktopOnly": false
 }
