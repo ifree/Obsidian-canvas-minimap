@@ -1,4 +1,4 @@
-import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import { App, Plugin, PluginSettingTab, Setting } from 'obsidian';
 import * as d3 from "d3";
 
 class Vector2 {
@@ -30,13 +30,15 @@ class BoundingBox {
 	min_y: number
 	max_x: number
 	max_y: number
-	constructor(min_x: number = 0, min_y: number = 0, max_x: number = 0, max_y: number = 0) {
+	constructor(min_x = 0, min_y = 0, max_x = 0, max_y = 0) {
 		this.min_x = min_x
 		this.min_y = min_y
 		this.max_x = max_x
 		this.max_y = max_y
 	}
-	static fromRect(bbox: SVGRect) {
+	static fromRect(bbox: SVGRect | undefined) {
+		if (!bbox)
+			return new BoundingBox()
 		return new BoundingBox(bbox.x, bbox.y, bbox.x + bbox.width, bbox.y + bbox.height)
 	}
 	width() {
@@ -125,13 +127,13 @@ export default class CanvasMinimap extends Plugin {
 	}
 
 	renderMinimap(svg: any, canvas: any) {
-		let nodes: Map<string, any> = canvas.nodes
-		let edges: Map<string, any> = canvas.edges
+		const nodes: Map<string, any> = canvas.nodes
+		const edges: Map<string, any> = canvas.edges
 
-		let sidePositionOf = (node: any, side: string) => {
-			let origin = new Vector2(node.x, node.y);
-			let radius = new Vector2(node.width / 2, node.height / 2);
-			let center = Vector2.add(origin, radius);
+		const sidePositionOf = (node: any, side: string) => {
+			const origin = new Vector2(node.x, node.y);
+			const radius = new Vector2(node.width / 2, node.height / 2);
+			const center = Vector2.add(origin, radius);
 
 			if (side == "left") {
 				return Vector2.sub(center, new Vector2(radius.x, 0));
@@ -148,9 +150,9 @@ export default class CanvasMinimap extends Plugin {
 		// clear the svg		
 		svg.selectAll('*').remove();
 
-		let bbox: BoundingBox = new BoundingBox();
-		let groups: Map<string, any> = new Map()
-		let children: Map<string, any> = new Map()
+		const bbox: BoundingBox = new BoundingBox();
+		const groups: Map<string, any> = new Map()
+		const children: Map<string, any> = new Map()
 		nodes.forEach((node: any) => {
 			bbox.min_x = Math.min(bbox.min_x, node.x);
 			bbox.min_y = Math.min(bbox.min_y, node.y);
@@ -174,11 +176,11 @@ export default class CanvasMinimap extends Plugin {
 			.attr("height", this.settings.height);
 
 		groups.forEach((n: any) => {
-			let g = svg.append('g')
-			let rect = g.append("rect");
+			const g = svg.append('g')
+			const rect = g.append("rect");
 
-			let props = Object.entries(n);
-			for (let [k, v] of props) {
+			const props = Object.entries(n);
+			for (const [k, v] of props) {
 				// allowed props: x, y, width, height, id
 				if (k === 'x' || k === 'y' || k === 'width' || k === 'height' || k === 'id')
 					rect.attr(k, v);
@@ -189,14 +191,14 @@ export default class CanvasMinimap extends Plugin {
 				console.log('clicked', n)
 			})
 
-			let label: string = n.label
+			const label: string = n.label
 			if (label) {
 				// prevent text from scaling
-				let scale_x = this.settings.width / (bbox.max_x - bbox.min_x)
-				let scale_y = this.settings.height / (bbox.max_y - bbox.min_y)
-				let scale = Math.min(scale_x, scale_y)
-				let font_size = this.settings.fontSize / scale
-				let text = g.append("text")
+				const scale_x = this.settings.width / (bbox.max_x - bbox.min_x)
+				const scale_y = this.settings.height / (bbox.max_y - bbox.min_y)
+				const scale = Math.min(scale_x, scale_y)
+				const font_size = this.settings.fontSize / scale
+				const text = g.append("text")
 				text
 					.text(label)
 					.attr("x", n.x)
@@ -210,9 +212,9 @@ export default class CanvasMinimap extends Plugin {
 			}
 		})
 		children.forEach((n: any) => {
-			let rect = svg.append("rect");
-			let props = Object.entries(n);
-			for (let [k, v] of props) {
+			const rect = svg.append("rect");
+			const props = Object.entries(n);
+			for (const [k, v] of props) {
 				if (k === 'x' || k === 'y' || k === 'width' || k === 'height' || k === 'id')
 					rect.attr(k, v);
 			}
@@ -220,19 +222,20 @@ export default class CanvasMinimap extends Plugin {
 			rect.attr("fill", this.settings.nodeColor);
 		})
 		edges.forEach((e: any) => {
-			let fromPos = sidePositionOf(e.from.node, e.from.side);
-			let toPos = sidePositionOf(e.to.node, e.to.side);
+			const fromPos = sidePositionOf(e.from.node, e.from.side);
+			const toPos = sidePositionOf(e.to.node, e.to.side);
 
-			let linkAnchor = (side: string) => {
+
+			const linkAnchor = (side: string) => {
 				if (side == "left" || side == "right") return d3.linkHorizontal();
 				else return d3.linkVertical();
 			};
-			let link = linkAnchor(e.fromSide)
-				.x((d: any) => d.x)
-				.y((d: any) => d.y)({
-					source: fromPos,
-					target: toPos
+			const link = linkAnchor(e.fromSide)(
+				{
+					source: [fromPos.x, fromPos.y],
+					target: [toPos.x, toPos.y]
 				});
+			console.log(e, fromPos, toPos, link)
 			svg
 				.append("path")
 				.attr("d", link)
@@ -260,10 +263,10 @@ export default class CanvasMinimap extends Plugin {
 		this.setupMinimap()
 	}
 	unloadMinimap() {
-		let active_canvas = this.getActiveCanvas()
+		const active_canvas = this.getActiveCanvas()
 		if (active_canvas) {
-			let container = d3.select(active_canvas.wrapperEl.parentNode)
-			let minimap = container.select('#_minimap_')
+			const container = d3.select(active_canvas.wrapperEl.parentNode)
+			const minimap = container.select('#_minimap_')
 			if (!minimap.empty()) {
 				minimap.remove()
 			}
@@ -272,14 +275,14 @@ export default class CanvasMinimap extends Plugin {
 	setupMinimap() {
 		if (!this.settings.enabled) return
 		//let active_canvas = this.app.workspace.getActiveViewOfType("canvas")
-		let active_canvas = this.getActiveCanvas()
+		const active_canvas = this.getActiveCanvas()
 
 		if (active_canvas) {
-			let container = d3.select(active_canvas.wrapperEl.parentNode)
+			const container = d3.select(active_canvas.wrapperEl.parentNode)
 			let minimap = container.select('#_minimap_')
 			if (minimap.empty()) {
 
-				let div = container.append('div').attr('id', '_minimap_')
+				const div = container.append('div').attr('id', '_minimap_')
 					.style('position', 'absolute')
 					.style('width', this.settings.width)
 					.style('height', this.settings.height)
@@ -291,7 +294,7 @@ export default class CanvasMinimap extends Plugin {
 					.style('border-radius', '5px')
 					.style('overflow', 'hidden')
 
-				let side = this.settings.side
+				const side = this.settings.side
 				// position the minimap
 				if (side === 'top-right') {
 					div.style('top', '0').style('right', '0')
@@ -304,7 +307,7 @@ export default class CanvasMinimap extends Plugin {
 				}
 
 				// markers
-				let svg = div.append('svg')
+				const svg = div.append('svg')
 				svg
 					.append("defs")
 					.selectAll("marker")
@@ -324,19 +327,19 @@ export default class CanvasMinimap extends Plugin {
 
 				minimap = container.select('#_minimap_')
 				svg.on('click', (e: any) => {
-					let active_canvas = this.getActiveCanvas()
+					const active_canvas = this.getActiveCanvas()
 
-					let p = d3.pointer(e)
-					let [x, y] = p
-					let svg_bbox = BoundingBox.fromRect(svg.node().getBBox())
+					const p = d3.pointer(e)
+					const [x, y] = p
+					const svg_bbox = BoundingBox.fromRect(svg.node()?.getBBox())
 
 					if (!svg_bbox.contains(new Vector2(x, y))) {
 						return
 					}
-					let svg_nodes = Array.from(svg.selectAll('rect').nodes())
+					const svg_nodes = Array.from(svg.selectAll('rect').nodes())
 
-					let target_nodes = svg_nodes.filter((n: any, i: Number) => {
-						let bbox = BoundingBox.fromRect(n.getBBox())
+					const target_nodes = svg_nodes.filter((n: any, i: number) => {
+						const bbox = BoundingBox.fromRect(n.getBBox())
 						return bbox.contains(new Vector2(x, y))
 					}).map((n: any) => active_canvas.nodes?.get(n.id))
 
@@ -344,9 +347,9 @@ export default class CanvasMinimap extends Plugin {
 						// focus to nearest node
 						let bbox = target_nodes[0].bbox
 						let distSq = Vector2.lenSq(new Vector2(bbox.minX - x, bbox.minY - y))
-						for (let n of target_nodes) {
-							let current_bbox = n.bbox
-							let current_distSq = Vector2.lenSq(new Vector2(current_bbox.minX - x, current_bbox.minY - y))
+						for (const n of target_nodes) {
+							const current_bbox = n.bbox
+							const current_distSq = Vector2.lenSq(new Vector2(current_bbox.minX - x, current_bbox.minY - y))
 							if (current_distSq < distSq) {
 								distSq = current_distSq
 								bbox = current_bbox
@@ -358,9 +361,9 @@ export default class CanvasMinimap extends Plugin {
 				})
 				container.on('click', (e: any) => {
 					// locate rect of minimap
-					let [x, y] = d3.pointer(e)
+					//const [x, y] = d3.pointer(e)
 					// cant register click on svg, so we dispatch click event to the svg /facepalm
-					svg.node().dispatchEvent(new MouseEvent('click', { bubbles: false, clientX: e.clientX, clientY: e.clientY }))
+					svg.node()?.dispatchEvent(new MouseEvent('click', { bubbles: false, clientX: e.clientX, clientY: e.clientY }))
 				})
 
 			}
