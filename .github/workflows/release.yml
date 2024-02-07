@@ -6,7 +6,7 @@ on:
       - '*' 
 
 env:
-  PLUGIN_NAME: obsidian-canvas-minimap
+  PLUGIN_NAME: canvas-minimap
 
 jobs:
   build:

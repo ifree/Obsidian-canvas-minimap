@@ -1,5 +1,5 @@
 {
-	"name": "obsidian-canvas-minimap",
+	"name": "canvas-minimap",
 	"version": "1.0.7",
 	"description": "canvas minimap",
 	"main": "main.js",
