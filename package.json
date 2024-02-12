@@ -1,6 +1,6 @@
 {
 	"name": "canvas-minimap",
-	"version": "1.0.8",
+	"version": "1.0.9",
 	"description": "canvas minimap",
 	"main": "main.js",
 	"scripts": {
