@@ -1,4 +1,4 @@
-import { App, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import { App, TAbstractFile, Plugin, PluginSettingTab, Setting } from 'obsidian';
 import * as d3 from "d3";
 
 class Vector2 {
@@ -124,6 +124,16 @@ export default class CanvasMinimap extends Plugin {
 		this.app.workspace.on('active-leaf-change', () => {
 			this.reloadMinimap()
 		})
+		this.app.vault.on('modify', (file: TAbstractFile) => {
+			if(!this.getActiveCanvas())
+				return
+			const activeFile = this.app.workspace.getActiveFile()
+			// check if the file is the active file
+			if (activeFile && file.path === activeFile.path)
+			{
+				this.reloadMinimap()
+			}
+		})
 	}
 
 	renderMinimap(svg: any, canvas: any) {
@@ -187,9 +197,7 @@ export default class CanvasMinimap extends Plugin {
 			}
 			rect.attr("stroke", "darkblue");
 			rect.attr("fill", this.settings.groupColor);
-			rect.on('click', (e: any) => {
-				console.log('clicked', n)
-			})
+			
 
 			const label: string = n.label
 			if (label) {
@@ -235,7 +243,7 @@ export default class CanvasMinimap extends Plugin {
 					source: [fromPos.x, fromPos.y],
 					target: [toPos.x, toPos.y]
 				});
-			console.log(e, fromPos, toPos, link)
+			//console.log(e, fromPos, toPos, link)
 			svg
 				.append("path")
 				.attr("d", link)
