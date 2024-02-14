@@ -1,11 +1,10 @@
 {
 	"id": "canvas-minimap",
-	"name": "canvas minimap",
+	"name": "Canvas minimap",
 	"version": "1.0.9",
 	"minAppVersion": "0.15.0",
-	"description": "canvas minimap.",
+	"description": "For easy navigation in large canvas",
 	"author": "ifree",
-	"authorUrl": "https://github.com/ifree/Obsidian-canvas-minimap",
-	"fundingUrl": "",
+	"authorUrl": "https://github.com/ifree",
 	"isDesktopOnly": false
 }

@@ -89,8 +89,8 @@ export default class CanvasMinimap extends Plugin {
 
 
 		this.addCommand({
-			id: 'canvas-minimap-reload',
-			name: 'Reload Canvas minimap',
+			id: 'reload',
+			name: 'Reload the minimap',
 			checkCallback: (checking: boolean) => {
 
 				if (this.getActiveCanvas()) {
@@ -103,8 +103,8 @@ export default class CanvasMinimap extends Plugin {
 		});
 
 		this.addCommand({
-			id: 'canvas-minimap-toggle',
-			name: 'Toggle Canvas minimap',
+			id: 'toggle',
+			name: 'Toggle the minimap',
 			checkCallback: (checking: boolean) => {
 				if (this.getActiveCanvas()) {
 					if (!checking) {
@@ -121,10 +121,11 @@ export default class CanvasMinimap extends Plugin {
 		this.app.workspace.onLayoutReady(() => {
 			this.setupMinimap()
 		})
-		this.app.workspace.on('active-leaf-change', () => {
+
+		this.registerEvent(this.app.workspace.on('active-leaf-change', () => {
 			this.reloadMinimap()
-		})
-		this.app.vault.on('modify', (file: TAbstractFile) => {
+		}))
+		this.registerEvent(this.app.vault.on('modify', (file: TAbstractFile) => {
 			if(!this.getActiveCanvas())
 				return
 			const activeFile = this.app.workspace.getActiveFile()
@@ -133,7 +134,7 @@ export default class CanvasMinimap extends Plugin {
 			{
 				this.reloadMinimap()
 			}
-		})
+		}))
 	}
 
 	renderMinimap(svg: any, canvas: any) {
@@ -403,7 +404,6 @@ class CanvasMinimapSettingTab extends PluginSettingTab {
 		const { containerEl } = this;
 
 		containerEl.empty();
-		containerEl.createEl('h2', { text: 'Canvas Minimap Settings' });
 
 		new Setting(containerEl)
 			.setName('Width')
@@ -427,7 +427,7 @@ class CanvasMinimapSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Margin')
-			.setDesc('Margin of the minimap')
+			.setDesc('Margin around the minimap')
 			.addText(text => text
 				.setValue(this.plugin.settings.margin.toString())
 				.onChange(async (value) => {
@@ -436,8 +436,8 @@ class CanvasMinimapSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
-			.setName('Font Size')
-			.setDesc('Font size of the minimap')
+			.setName('Font size')
+			.setDesc('The font size of the minimap labels')
 			.addText(text => text
 				.setValue(this.plugin.settings.fontSize.toString())
 				.onChange(async (value) => {
@@ -446,8 +446,8 @@ class CanvasMinimapSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
-			.setName('Font Color')
-			.setDesc('Font color of the minimap')
+			.setName('Font color')
+			.setDesc('The font color of the minimap labels')
 			.addText(text => text
 				.setValue(this.plugin.settings.fontColor)
 				.onChange(async (value) => {
@@ -458,7 +458,7 @@ class CanvasMinimapSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Side')
-			.setDesc('Side of the minimap')
+			.setDesc('Which side of the editor view to place the minimap on')
 			.addDropdown(dropdown => dropdown
 				.addOptions({
 					'top-right': 'Top Right',
@@ -474,7 +474,7 @@ class CanvasMinimapSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Enabled')
-			.setDesc('Enable minimap')
+			.setDesc('Whether the minimap is enabled')
 			.addToggle(toggle => toggle
 				.setValue(this.plugin.settings.enabled)
 				.onChange(async (value) => {
@@ -483,7 +483,7 @@ class CanvasMinimapSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
-			.setName('Background Color')
+			.setName('Background color')
 			.setDesc('Background color of the minimap')
 			.addText(text => text
 				.setValue(this.plugin.settings.backgroundColor)
@@ -493,7 +493,7 @@ class CanvasMinimapSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
-			.setName('Group Color')
+			.setName('Group color')
 			.setDesc('Color of the group nodes')
 			.addText(text => text
 				.setValue(this.plugin.settings.groupColor)

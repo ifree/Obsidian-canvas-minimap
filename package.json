@@ -1,7 +1,7 @@
 {
 	"name": "canvas-minimap",
 	"version": "1.0.9",
-	"description": "canvas minimap",
+	"description": "Canvas minimap",
 	"main": "main.js",
 	"scripts": {
 		"dev": "node esbuild.config.mjs",
