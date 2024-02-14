@@ -1,7 +1,7 @@
 {
 	"id": "canvas-minimap",
 	"name": "Canvas minimap",
-	"version": "1.0.9",
+	"version": "1.0.10",
 	"minAppVersion": "0.15.0",
 	"description": "For easy navigation in large canvas",
 	"author": "ifree",
