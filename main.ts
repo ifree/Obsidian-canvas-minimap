@@ -1,4 +1,4 @@
-import { App, TAbstractFile, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import { App, TAbstractFile, Plugin, PluginSettingTab, Setting, FileView } from 'obsidian';
 import * as d3 from "d3";
 
 class Vector2 {
@@ -263,8 +263,10 @@ export default class CanvasMinimap extends Plugin {
 	}
 
 	getActiveCanvas(): any {
-		const maybeCanvasView = this.app.workspace?.getLeaf().view
-		return maybeCanvasView ? (maybeCanvasView as any)['canvas'] : null
+		let currentView = this.app.workspace?.getActiveViewOfType(FileView)
+		if(currentView?.getViewType() !== 'canvas')
+			return null
+		return (currentView as any)['canvas']
 	}
 
 	reloadMinimap() {
