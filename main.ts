@@ -1,6 +1,21 @@
 import { App, TAbstractFile, Plugin, PluginSettingTab, Setting, FileView } from 'obsidian';
 import * as d3 from "d3";
 
+// Obsidian canvas types
+interface CanvasRect{
+	cx: number;
+	cy: number;
+	width: number;
+	height: number;
+	left: number;
+	top: number;
+	maxX: number;
+	maxY: number;
+	minX: number;
+	minY: number;
+}
+
+
 class Vector2 {
 	x: number
 	y: number
@@ -255,7 +270,12 @@ export default class CanvasMinimap extends Plugin {
 
 		})
 
-		//console.log(svg, nodes, edges)
+		//project client area to the minimap
+		let canvas_rect = canvas.canvasRect as CanvasRect;
+		if(canvas_rect){
+			//TODO: later			
+		}
+
 	}
 
 	onunload() {
@@ -280,6 +300,10 @@ export default class CanvasMinimap extends Plugin {
 			const minimap = container.select('#_minimap_')
 			if (!minimap.empty()) {
 				minimap.remove()
+			}
+			const toolbar = container.select('#_minimap_toolbar_')
+			if (!toolbar.empty()) {
+				toolbar.remove()
 			}
 		}
 	}
@@ -377,6 +401,41 @@ export default class CanvasMinimap extends Plugin {
 					svg.node()?.dispatchEvent(new MouseEvent('click', { bubbles: false, clientX: e.clientX, clientY: e.clientY }))
 				})
 
+				// rearrange toolbar
+				if(container.select('#_minimap_toolbar_').empty()){
+					let toolbar_clone = container.select('.canvas-controls').clone(true)
+					let toolbar_item_rect = (toolbar_clone.select('.canvas-control-item').node() as HTMLElement)?.getBoundingClientRect()
+					container.append(() => toolbar_clone.node())
+					toolbar_clone.attr('id', '_minimap_toolbar_')
+					
+					// get minimap position
+					setTimeout(()=>{
+						const minimap_pos = new Vector2((minimap.node() as HTMLElement)?.offsetLeft, (minimap.node() as HTMLElement)?.offsetTop)
+						toolbar_clone
+						.style('position', 'absolute')
+						.style('left', `${minimap_pos?.x}px`)
+						.style('top', `${minimap_pos?.y - toolbar_item_rect.height - 4}px`)
+						.style('z-index', '1001')
+						.style('flex-direction', 'row')
+						.style('justify-content', 'flex-start')
+						.style('align-items', 'top')
+						.style('padding', '0')
+						.style('margin', '0')
+						.style('background-color', 'transparent')
+						.style('border', 'none')
+						toolbar_clone.selectAll('.canvas-control-group').style('flex-direction', 'row')		
+					}, 500)
+				}
+				// toolbar event routing
+				// TODO: optimize this later
+				const minimap_toolbar = container.selectAll('.canvas-controls').filter("#_minimap_toolbar_")
+				const toolbar = container.selectAll('.canvas-controls').filter(":not(#_minimap_toolbar_)")
+				minimap_toolbar.selectAll('.canvas-control-item').select(function(d:any, i:number, nodes:any){
+					d3.select(this).on('click', (e:any)=>{						
+						toolbar.selectAll('.canvas-control-item').filter((_:any, idx:number) => idx == i ).dispatch('click')
+					})
+					return this;
+				})
 			}
 
 			this.renderMinimap(container.select('#_minimap_>svg'), active_canvas)
