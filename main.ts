@@ -1,5 +1,6 @@
 import { App, TAbstractFile, Plugin, PluginSettingTab, Setting, FileView } from 'obsidian';
 import * as d3 from "d3";
+import { assert } from 'console';
 
 // Obsidian canvas types
 interface CanvasRect{
@@ -81,6 +82,7 @@ interface CanvasMinimapSettings {
 	backgroundColor: string;
 	groupColor: string;
 	nodeColor: string;
+	hijackToolbar: boolean;
 }
 
 const DEFAULT_SETTINGS: CanvasMinimapSettings = {
@@ -93,7 +95,8 @@ const DEFAULT_SETTINGS: CanvasMinimapSettings = {
 	enabled: true,
 	backgroundColor: '#f3f0e933',
 	groupColor: '#bdd5de55',
-	nodeColor: '#c3d6d7'
+	nodeColor: '#c3d6d7',
+	hijackToolbar: false
 }
 
 export default class CanvasMinimap extends Plugin {
@@ -270,12 +273,6 @@ export default class CanvasMinimap extends Plugin {
 
 		})
 
-		//project client area to the minimap
-		let canvas_rect = canvas.canvasRect as CanvasRect;
-		if(canvas_rect){
-			//TODO: later			
-		}
-
 	}
 
 	onunload() {
@@ -314,6 +311,10 @@ export default class CanvasMinimap extends Plugin {
 
 		if (active_canvas) {
 			const container = d3.select(active_canvas.wrapperEl.parentNode)
+			const toolbar = container.selectAll('.canvas-controls').filter(":not(#_minimap_toolbar_)")
+			toolbar.style('display', 'flex') // restore toolbar if it was hidden
+			const toolbar_item_rect = (toolbar.select('.canvas-control-item').node() as HTMLElement)?.getBoundingClientRect()
+
 			let minimap = container.select('#_minimap_')
 			if (minimap.empty()) {
 
@@ -330,11 +331,12 @@ export default class CanvasMinimap extends Plugin {
 					.style('overflow', 'hidden')
 
 				const side = this.settings.side
+				const top_offset = this.settings.hijackToolbar ? toolbar_item_rect?.height + 4 : 0
 				// position the minimap
 				if (side === 'top-right') {
-					div.style('top', '0').style('right', '0')
+					div.style('top', `${top_offset}px`).style('right', '0')
 				} else if (side === 'top-left') {
-					div.style('top', '0').style('left', '0')
+					div.style('top', `${top_offset}px`).style('left', '0')
 				} else if (side === 'bottom-left') {
 					div.style('bottom', '0').style('left', '0')
 				} else if (side === 'bottom-right') {
@@ -401,41 +403,49 @@ export default class CanvasMinimap extends Plugin {
 					svg.node()?.dispatchEvent(new MouseEvent('click', { bubbles: false, clientX: e.clientX, clientY: e.clientY }))
 				})
 
+
 				// rearrange toolbar
-				if(container.select('#_minimap_toolbar_').empty()){
-					let toolbar_clone = container.select('.canvas-controls').clone(true)
-					let toolbar_item_rect = (toolbar_clone.select('.canvas-control-item').node() as HTMLElement)?.getBoundingClientRect()
-					container.append(() => toolbar_clone.node())
-					toolbar_clone.attr('id', '_minimap_toolbar_')
+				if(this.settings.hijackToolbar){
+					if(container.select('#_minimap_toolbar_').empty()){
+						let toolbar_clone = container.select('.canvas-controls').clone(true)
+						
+						container.append(() => toolbar_clone.node())
+						toolbar_clone.attr('id', '_minimap_toolbar_').style('display', 'flex')
+						
+						// get minimap position
+						setTimeout(()=>{
+							const minimap_pos = new Vector2((minimap.node() as HTMLElement)?.offsetLeft, (minimap.node() as HTMLElement)?.offsetTop)
+							toolbar_clone
+							.style('position', 'absolute')
+							.style('left', `${minimap_pos?.x}px`)
+							.style('top', `${minimap_pos?.y - top_offset}px`)
+							.style('z-index', '1001')
+							.style('flex-direction', 'row')
+							.style('justify-content', 'flex-start')
+							.style('align-items', 'top')
+							.style('padding', '0')
+							.style('margin', '0')
+							.style('background-color', 'transparent')
+							.style('border', 'none')
+							toolbar_clone.selectAll('.canvas-control-group').style('flex-direction', 'row')		
+						}, 500)
+					}
+					// toolbar event routing
+					// TODO: optimize this later
+					const minimap_toolbar = container.selectAll('.canvas-controls').filter("#_minimap_toolbar_")
 					
-					// get minimap position
-					setTimeout(()=>{
-						const minimap_pos = new Vector2((minimap.node() as HTMLElement)?.offsetLeft, (minimap.node() as HTMLElement)?.offsetTop)
-						toolbar_clone
-						.style('position', 'absolute')
-						.style('left', `${minimap_pos?.x}px`)
-						.style('top', `${minimap_pos?.y - toolbar_item_rect.height - 4}px`)
-						.style('z-index', '1001')
-						.style('flex-direction', 'row')
-						.style('justify-content', 'flex-start')
-						.style('align-items', 'top')
-						.style('padding', '0')
-						.style('margin', '0')
-						.style('background-color', 'transparent')
-						.style('border', 'none')
-						toolbar_clone.selectAll('.canvas-control-group').style('flex-direction', 'row')		
-					}, 500)
-				}
-				// toolbar event routing
-				// TODO: optimize this later
-				const minimap_toolbar = container.selectAll('.canvas-controls').filter("#_minimap_toolbar_")
-				const toolbar = container.selectAll('.canvas-controls').filter(":not(#_minimap_toolbar_)")
-				minimap_toolbar.selectAll('.canvas-control-item').select(function(d:any, i:number, nodes:any){
-					d3.select(this).on('click', (e:any)=>{						
-						toolbar.selectAll('.canvas-control-item').filter((_:any, idx:number) => idx == i ).dispatch('click')
+					minimap_toolbar.selectAll('.canvas-control-item').select(function(d:any, i:number, nodes:any){
+						d3.select(this).on('click', (e:any)=>{						
+							toolbar.selectAll('.canvas-control-item').filter((_:any, idx:number) => idx == i ).dispatch('click')
+						})
+						return this;
 					})
-					return this;
-				})
+					// hide original toolbar
+					toolbar.style('display', 'none')
+				}else{
+					// reset toolbar visibility
+					toolbar.style('display', 'flex')
+				}
 			}
 
 			this.renderMinimap(container.select('#_minimap_>svg'), active_canvas)
@@ -560,6 +570,16 @@ class CanvasMinimapSettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.groupColor)
 				.onChange(async (value) => {
 					this.plugin.settings.groupColor = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Hijack toolbar')
+			.setDesc('Move the toolbar on top of the minimap')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.hijackToolbar)
+				.onChange(async (value) => {
+					this.plugin.settings.hijackToolbar = value;
 					await this.plugin.saveSettings();
 				}));
 	}
