@@ -1,6 +1,7 @@
-import { App, TAbstractFile, Plugin, PluginSettingTab, Setting, FileView, Keymap } from 'obsidian';
+import { App, TAbstractFile, Plugin, PluginSettingTab, Setting, FileView, Keymap, Events } from 'obsidian';
 import * as d3 from "d3";
 import { assert } from 'console';
+import { around } from 'monkey-around'; // for canvas patching
 
 // Obsidian canvas types
 interface CanvasRect{
@@ -15,6 +16,13 @@ interface CanvasRect{
 	minX: number;
 	minY: number;
 }
+
+class CanvasEvent extends Events {
+	constructor() {
+	  super();
+	}
+}
+type CanvasEventType = "CANVAS_MOVED" | "CANVAS_DIRTY" | "CANVAS_VIEWPORT_CHANGED";
 
 
 class Vector2 {
@@ -101,6 +109,8 @@ const DEFAULT_SETTINGS: CanvasMinimapSettings = {
 
 export default class CanvasMinimap extends Plugin {
 	settings: CanvasMinimapSettings;
+	canvas_patched: boolean = false
+	canvas_event: CanvasEvent = new CanvasEvent()
 
 	async onload() {
 		await this.loadSettings();
@@ -277,6 +287,55 @@ export default class CanvasMinimap extends Plugin {
 
 	onunload() {
 		this.unloadMinimap()
+
+		// remove canvas event listeners
+		this.canvas_event.off('CANVAS_MOVED', this.on_canvas_move)
+		this.canvas_event.off('CANVAS_DIRTY', this.on_canvas_dirty)
+		this.canvas_event.off('CANVAS_VIEWPORT_CHANGED', this.on_canvas_viewport_changed)
+	}
+
+	on_canvas_move(e: any) {
+		
+	}
+	on_canvas_dirty(e: any) {
+		
+	}
+	on_canvas_viewport_changed() {
+		
+	}
+
+	dispatch_canvas_event(type: CanvasEventType, e: any) {
+		this.canvas_event.trigger(type, e)
+	}
+
+	// adapt from https://github.com/Quorafind/Obsidian-Collapse-Node/blob/master/src/canvasCollapseIndex.ts#L89
+	patchCanvas(canvas:any) {
+		let that = this
+		if(canvas){
+			const uninstaller = around(canvas.constructor.prototype, {
+				markMoved: (next: any) =>
+					function (e: any) {
+						next.call(this, e);
+						that.dispatch_canvas_event('CANVAS_MOVED', e)
+					},
+				markDirty: (next: any) =>
+					function (e: any) {
+						next.call(this, e);
+						that.dispatch_canvas_event('CANVAS_DIRTY', e)
+					},
+				markViewportChanged: (next: any) =>
+					function () {
+						next.call(this);
+						that.dispatch_canvas_event('CANVAS_VIEWPORT_CHANGED', null)
+					},
+			});
+			this.register(uninstaller);
+			this.canvas_patched = true;
+		}
+		// register event listeners
+		this.canvas_event.on('CANVAS_MOVED', this.on_canvas_move)
+		this.canvas_event.on('CANVAS_DIRTY', this.on_canvas_dirty)
+		this.canvas_event.on('CANVAS_VIEWPORT_CHANGED', this.on_canvas_viewport_changed)
 	}
 
 	getActiveCanvas(): any {
@@ -310,6 +369,8 @@ export default class CanvasMinimap extends Plugin {
 		const active_canvas = this.getActiveCanvas()
 
 		if (active_canvas) {
+			this.patchCanvas(active_canvas)
+
 			const container = d3.select(active_canvas.wrapperEl.parentNode)
 			const toolbar = container.selectAll('.canvas-controls').filter(":not(#_minimap_toolbar_)")
 			toolbar.style('display', 'flex') // restore toolbar if it was hidden
