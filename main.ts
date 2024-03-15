@@ -1,4 +1,4 @@
-import { App, TAbstractFile, Plugin, PluginSettingTab, Setting, FileView } from 'obsidian';
+import { App, TAbstractFile, Plugin, PluginSettingTab, Setting, FileView, Keymap } from 'obsidian';
 import * as d3 from "d3";
 import { assert } from 'console';
 
@@ -42,15 +42,15 @@ class Vector2 {
 }
 
 class BoundingBox {
-	min_x: number
-	min_y: number
-	max_x: number
-	max_y: number
+	minX: number
+	minY: number
+	maxX: number
+	maxY: number
 	constructor(min_x = 0, min_y = 0, max_x = 0, max_y = 0) {
-		this.min_x = min_x
-		this.min_y = min_y
-		this.max_x = max_x
-		this.max_y = max_y
+		this.minX = min_x
+		this.minY = min_y
+		this.maxX = max_x
+		this.maxY = max_y
 	}
 	static fromRect(bbox: SVGRect | undefined) {
 		if (!bbox)
@@ -58,13 +58,13 @@ class BoundingBox {
 		return new BoundingBox(bbox.x, bbox.y, bbox.x + bbox.width, bbox.y + bbox.height)
 	}
 	width() {
-		return this.max_x - this.min_x
+		return this.maxX - this.minX
 	}
 	height() {
-		return this.max_y - this.min_y
+		return this.maxY - this.minY
 	}
 	contains(p: Vector2) {
-		return p.x >= this.min_x && p.x <= this.max_x && p.y >= this.min_y && p.y <= this.max_y
+		return p.x >= this.minX && p.x <= this.maxX && p.y >= this.minY && p.y <= this.maxY
 	}
 }
 
@@ -183,10 +183,10 @@ export default class CanvasMinimap extends Plugin {
 		const groups: Map<string, any> = new Map()
 		const children: Map<string, any> = new Map()
 		nodes.forEach((node: any) => {
-			bbox.min_x = Math.min(bbox.min_x, node.x);
-			bbox.min_y = Math.min(bbox.min_y, node.y);
-			bbox.max_x = Math.max(bbox.max_x, node.x + node.width);
-			bbox.max_y = Math.max(bbox.max_y, node.y + node.height);
+			bbox.minX = Math.min(bbox.minX, node.x);
+			bbox.minY = Math.min(bbox.minY, node.y);
+			bbox.maxX = Math.max(bbox.maxX, node.x + node.width);
+			bbox.maxY = Math.max(bbox.maxY, node.y + node.height);
 			if (node.unknownData?.type === 'group') {
 				groups.set(node.id, node)
 			} else {
@@ -197,7 +197,7 @@ export default class CanvasMinimap extends Plugin {
 
 		svg.attr(
 			"viewBox",
-			`${bbox.min_x - this.settings.margin} ${bbox.min_y - this.settings.margin} ${bbox.max_x - bbox.min_x + this.settings.margin} ${bbox.max_y - bbox.min_y + this.settings.margin
+			`${bbox.minX - this.settings.margin} ${bbox.minY - this.settings.margin} ${bbox.maxX - bbox.minX + this.settings.margin} ${bbox.maxY - bbox.minY + this.settings.margin
 			} `
 		)
 			.attr("preserveAspectRatio", "xMidYMid meet")
@@ -221,8 +221,8 @@ export default class CanvasMinimap extends Plugin {
 			const label: string = n.label
 			if (label) {
 				// prevent text from scaling
-				const scale_x = this.settings.width / (bbox.max_x - bbox.min_x)
-				const scale_y = this.settings.height / (bbox.max_y - bbox.min_y)
+				const scale_x = this.settings.width / (bbox.maxX - bbox.minX)
+				const scale_y = this.settings.height / (bbox.maxY - bbox.minY)
 				const scale = Math.min(scale_x, scale_y)
 				const font_size = this.settings.fontSize / scale
 				const text = g.append("text")
@@ -391,8 +391,12 @@ export default class CanvasMinimap extends Plugin {
 								distSq = current_distSq
 								bbox = current_bbox
 							}
+						}						
+						if(Keymap.isModifier(e, 'Ctrl')){
+							active_canvas?.panTo(bbox.minX + (bbox.maxX - bbox.minX) / 2, bbox.minY + (bbox.maxY - bbox.minY) / 2)
+						}else{
+							active_canvas?.zoomToBbox(bbox)
 						}
-						active_canvas?.zoomToBbox(bbox)
 					}
 
 				})
@@ -400,7 +404,10 @@ export default class CanvasMinimap extends Plugin {
 					// locate rect of minimap
 					//const [x, y] = d3.pointer(e)
 					// cant register click on svg, so we dispatch click event to the svg /facepalm
-					svg.node()?.dispatchEvent(new MouseEvent('click', { bubbles: false, clientX: e.clientX, clientY: e.clientY }))
+					svg.node()?.dispatchEvent(new MouseEvent('click', {
+						bubbles: false, clientX: e.clientX, clientY: e.clientY, ctrlKey: e.ctrlKey,
+						altKey: e.altKey, shiftKey: e.shiftKey, metaKey: e.metaKey
+					}))
 				})
 
 
