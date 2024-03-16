@@ -22,7 +22,7 @@ class CanvasEvent extends Events {
 	  super();
 	}
 }
-type CanvasEventType = "CANVAS_MOVED" | "CANVAS_DIRTY" | "CANVAS_VIEWPORT_CHANGED";
+type CanvasEventType = "CANVAS_MOVED" | "CANVAS_DIRTY" | "CANVAS_VIEWPORT_CHANGED" | "CANVAS_TICK";
 
 
 class Vector2 {
@@ -74,7 +74,15 @@ class BoundingBox {
 	contains(p: Vector2) {
 		return p.x >= this.minX && p.x <= this.maxX && p.y >= this.minY && p.y <= this.maxY
 	}
+	isValid(){
+		return this.minX < this.maxX && this.minY < this.maxY	
+	}
 }
+
+function clamp(x: number, min: number, max: number) {
+	return Math.min(Math.max(x, min), max)
+}
+
 
 // Remember to rename these classes and interfaces!
 type MinimapSide = 'top-right' | 'top-left' | 'bottom-left' | 'bottom-right';
@@ -91,6 +99,7 @@ interface CanvasMinimapSettings {
 	groupColor: string;
 	nodeColor: string;
 	hijackToolbar: boolean;
+	drawActiveViewport: boolean;
 }
 
 const DEFAULT_SETTINGS: CanvasMinimapSettings = {
@@ -104,11 +113,13 @@ const DEFAULT_SETTINGS: CanvasMinimapSettings = {
 	backgroundColor: '#f3f0e933',
 	groupColor: '#bdd5de55',
 	nodeColor: '#c3d6d7',
-	hijackToolbar: false
+	hijackToolbar: false,
+	drawActiveViewport: true
 }
 
 export default class CanvasMinimap extends Plugin {
 	settings: CanvasMinimapSettings;
+	canvas_bounds: BoundingBox = new BoundingBox()
 	canvas_patched: boolean = false
 	canvas_event: CanvasEvent = new CanvasEvent()
 
@@ -204,18 +215,29 @@ export default class CanvasMinimap extends Plugin {
 			}
 		});
 
-
+		// save the canvas bounds
+		this.canvas_bounds = new BoundingBox(
+			bbox.minX - this.settings.margin, 
+			bbox.minY - this.settings.margin, 
+			bbox.maxX + this.settings.margin,
+			bbox.maxY + this.settings.margin)
+		
 		svg.attr(
 			"viewBox",
-			`${bbox.minX - this.settings.margin} ${bbox.minY - this.settings.margin} ${bbox.maxX - bbox.minX + this.settings.margin} ${bbox.maxY - bbox.minY + this.settings.margin
-			} `
+			`${this.canvas_bounds.minX} ${this.canvas_bounds.minY} ${this.canvas_bounds.width()} ${this.canvas_bounds.height()}`
 		)
 			.attr("preserveAspectRatio", "xMidYMid meet")
 			.attr("width", this.settings.width)
 			.attr("height", this.settings.height);
+		
+		let bg = svg.append('g')
+			.attr('id', 'minimap_bg')
+		let fg = svg.append('g')
+			.attr('id', 'minimap_fg')
+		
 
 		groups.forEach((n: any) => {
-			const g = svg.append('g')
+			const g = fg.append('g')
 			const rect = g.append("rect");
 
 			const props = Object.entries(n);
@@ -249,7 +271,7 @@ export default class CanvasMinimap extends Plugin {
 			}
 		})
 		children.forEach((n: any) => {
-			const rect = svg.append("rect");
+			const rect = fg.append("rect");
 			const props = Object.entries(n);
 			for (const [k, v] of props) {
 				if (k === 'x' || k === 'y' || k === 'width' || k === 'height' || k === 'id')
@@ -273,7 +295,7 @@ export default class CanvasMinimap extends Plugin {
 					target: [toPos.x, toPos.y]
 				});
 			//console.log(e, fromPos, toPos, link)
-			svg
+			fg
 				.append("path")
 				.attr("d", link)
 				.attr("marker-end", "url(#arrowhead-end)")
@@ -283,29 +305,40 @@ export default class CanvasMinimap extends Plugin {
 
 		})
 
+		bg.append('rect')
+			.attr('id', 'minimap_viewport')
+			.attr('fill', 'none')
+
+	}
+
+	renderCanvasViewport(canvas: any) {
+		if(!this.settings.drawActiveViewport)
+			return
+		let canvas_bbox = canvas.getViewportBBox()
+		const svg = d3.select(canvas.wrapperEl.parentNode)
+			.select('#_minimap_ > svg')
+		
+		svg.select('#minimap_viewport')
+			.attr('x', canvas_bbox.minX)
+			.attr('y', canvas_bbox.minY)
+			.attr('width', canvas_bbox.maxX - canvas_bbox.minX)
+			.attr('height', canvas_bbox.maxY - canvas_bbox.minY)
+			.attr('fill', 'azure')
+			.attr('alpha', '0.5')
+			.attr('stroke', 'orange')
+			.attr('stroke-width', '6')
 	}
 
 	onunload() {
 		this.unloadMinimap()
-
-		// remove canvas event listeners
-		this.canvas_event.off('CANVAS_MOVED', this.on_canvas_move)
-		this.canvas_event.off('CANVAS_DIRTY', this.on_canvas_dirty)
-		this.canvas_event.off('CANVAS_VIEWPORT_CHANGED', this.on_canvas_viewport_changed)
 	}
 
-	on_canvas_move(e: any) {
-		
-	}
-	on_canvas_dirty(e: any) {
-		
-	}
-	on_canvas_viewport_changed() {
-		
+	static onCanvasUpdate(_:any, ctx: CanvasMinimap) {
+		ctx.renderCanvasViewport(ctx.getActiveCanvas())
 	}
 
-	dispatch_canvas_event(type: CanvasEventType, e: any) {
-		this.canvas_event.trigger(type, e)
+	dispatchCanvasEvent(type: CanvasEventType, e: any) {
+		this.canvas_event.trigger(type, e, this)
 	}
 
 	// adapt from https://github.com/Quorafind/Obsidian-Collapse-Node/blob/master/src/canvasCollapseIndex.ts#L89
@@ -316,26 +349,29 @@ export default class CanvasMinimap extends Plugin {
 				markMoved: (next: any) =>
 					function (e: any) {
 						next.call(this, e);
-						that.dispatch_canvas_event('CANVAS_MOVED', e)
+						that.dispatchCanvasEvent('CANVAS_MOVED', e)
 					},
 				markDirty: (next: any) =>
 					function (e: any) {
 						next.call(this, e);
-						that.dispatch_canvas_event('CANVAS_DIRTY', e)
+						that.dispatchCanvasEvent('CANVAS_DIRTY', e)
 					},
 				markViewportChanged: (next: any) =>
 					function () {
 						next.call(this);
-						that.dispatch_canvas_event('CANVAS_VIEWPORT_CHANGED', null)
+						that.dispatchCanvasEvent('CANVAS_VIEWPORT_CHANGED', null)
+					},
+				requestFrame: (next: any) =>
+					function (e: any) {
+						next.call(this, e);
+						that.dispatchCanvasEvent('CANVAS_TICK', null)
 					},
 			});
 			this.register(uninstaller);
 			this.canvas_patched = true;
 		}
 		// register event listeners
-		this.canvas_event.on('CANVAS_MOVED', this.on_canvas_move)
-		this.canvas_event.on('CANVAS_DIRTY', this.on_canvas_dirty)
-		this.canvas_event.on('CANVAS_VIEWPORT_CHANGED', this.on_canvas_viewport_changed)
+		this.canvas_event.on('CANVAS_TICK', CanvasMinimap.onCanvasUpdate)
 	}
 
 	getActiveCanvas(): any {
@@ -361,6 +397,9 @@ export default class CanvasMinimap extends Plugin {
 			if (!toolbar.empty()) {
 				toolbar.remove()
 			}
+
+			// remove canvas event listeners
+			this.canvas_event.off('CANVAS_TICK', CanvasMinimap.onCanvasUpdate)
 		}
 	}
 	setupMinimap() {
@@ -434,7 +473,7 @@ export default class CanvasMinimap extends Plugin {
 					if (!svg_bbox.contains(new Vector2(x, y))) {
 						return
 					}
-					const svg_nodes = Array.from(svg.selectAll('rect').nodes())
+					const svg_nodes = Array.from(svg.selectAll('rect').filter(":not(#minimap_viewport)").nodes())
 
 					const target_nodes = svg_nodes.filter((n: any, i: number) => {
 						const bbox = BoundingBox.fromRect(n.getBBox())
@@ -648,6 +687,16 @@ class CanvasMinimapSettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.hijackToolbar)
 				.onChange(async (value) => {
 					this.plugin.settings.hijackToolbar = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Draw active viewport')
+			.setDesc('Draw the active viewport on the minimap')
+			.addToggle(toggle => toggle
+				.setValue(this.plugin.settings.drawActiveViewport)
+				.onChange(async (value) => {
+					this.plugin.settings.drawActiveViewport = value;
 					await this.plugin.saveSettings();
 				}));
 	}
