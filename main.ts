@@ -164,6 +164,10 @@ export default class CanvasMinimap extends Plugin {
 		this.registerEvent(this.app.workspace.on('active-leaf-change', () => {
 			this.reloadMinimap()
 		}))
+		this.registerEvent(this.app.workspace.on('resize', () => {
+			this.reloadMinimap()
+		}))
+
 		this.registerEvent(this.app.vault.on('modify', (file: TAbstractFile) => {
 			if(!this.getActiveCanvas())
 				return
