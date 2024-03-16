@@ -197,8 +197,6 @@ export default class CanvasMinimap extends Plugin {
 			throw new Error(`invalid side ${side}`);
 		};
 
-		// clear the svg		
-		svg.selectAll('*').remove();
 
 		const bbox: BoundingBox = new BoundingBox();
 		const groups: Map<string, any> = new Map()
@@ -271,13 +269,14 @@ export default class CanvasMinimap extends Plugin {
 			}
 		})
 		children.forEach((n: any) => {
-			const rect = fg.append("rect");
+			const g = fg.append('g')
+			const rect = g.append("rect");
 			const props = Object.entries(n);
 			for (const [k, v] of props) {
 				if (k === 'x' || k === 'y' || k === 'width' || k === 'height' || k === 'id')
 					rect.attr(k, v);
 			}
-			rect.attr("stroke", "blue");
+			//rect.attr("stroke", "blue");
 			rect.attr("fill", this.settings.nodeColor);
 		})
 		edges.forEach((e: any) => {
@@ -300,7 +299,7 @@ export default class CanvasMinimap extends Plugin {
 				.attr("d", link)
 				.attr("marker-end", "url(#arrowhead-end)")
 				.attr("stroke", "grey")
-				.attr("stroke-width", 5)
+				.attr("stroke-width", 8)
 				.attr("fill", "none");
 
 		})
@@ -314,6 +313,8 @@ export default class CanvasMinimap extends Plugin {
 	renderCanvasViewport(canvas: any) {
 		if(!this.settings.drawActiveViewport)
 			return
+		if(!canvas)
+			return
 		let canvas_bbox = canvas.getViewportBBox()
 		const svg = d3.select(canvas.wrapperEl.parentNode)
 			.select('#_minimap_ > svg')
@@ -326,7 +327,7 @@ export default class CanvasMinimap extends Plugin {
 			.attr('fill', 'azure')
 			.attr('alpha', '0.5')
 			.attr('stroke', 'orange')
-			.attr('stroke-width', '6')
+			.attr('stroke-width', '12')
 	}
 
 	onunload() {
@@ -445,8 +446,8 @@ export default class CanvasMinimap extends Plugin {
 
 				// markers
 				const svg = div.append('svg')
-				svg
-					.append("defs")
+				const defs = svg.append("defs")
+				defs
 					.selectAll("marker")
 					.data(["arrowhead-start", "arrowhead-end"]) // Unique ids for start and end markers
 					.enter()
