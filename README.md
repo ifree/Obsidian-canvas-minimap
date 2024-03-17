@@ -13,7 +13,7 @@ This plugin provides a minimap for canvas notes, which can help you navigate and
 ## Usage
 - Enable the minimap via the command palette or the settings.
 - By clicking on the minimap, you can navigate to the corresponding position in the canvas.
-    - Hold `Ctrl` to disable the zooming effect.
+    - Navigation behavior can be customized in the settings.
 - Profit!
 
 ## Note

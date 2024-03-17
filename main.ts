@@ -23,7 +23,7 @@ class CanvasEvent extends Events {
 	}
 }
 type CanvasEventType = "CANVAS_MOVED" | "CANVAS_DIRTY" | "CANVAS_VIEWPORT_CHANGED" | "CANVAS_TICK";
-
+type CanvasNavigationStrategy = "PAN" | "ZOOM" | "NONE";
 
 class Vector2 {
 	x: number
@@ -100,6 +100,8 @@ interface CanvasMinimapSettings {
 	nodeColor: string;
 	hijackToolbar: boolean;
 	drawActiveViewport: boolean;
+	primaryNavigationStrategy: CanvasNavigationStrategy;
+	secondaryNavigationStrategy: CanvasNavigationStrategy;
 }
 
 const DEFAULT_SETTINGS: CanvasMinimapSettings = {
@@ -114,7 +116,9 @@ const DEFAULT_SETTINGS: CanvasMinimapSettings = {
 	groupColor: '#bdd5de55',
 	nodeColor: '#c3d6d7',
 	hijackToolbar: false,
-	drawActiveViewport: true
+	drawActiveViewport: true,
+	primaryNavigationStrategy: 'ZOOM',
+	secondaryNavigationStrategy: 'PAN'
 }
 
 export default class CanvasMinimap extends Plugin {
@@ -496,10 +500,11 @@ export default class CanvasMinimap extends Plugin {
 								distSq = current_distSq
 								bbox = current_bbox
 							}
-						}						
-						if(Keymap.isModifier(e, 'Ctrl')){
+						}	
+						const navigation_strategy = Keymap.isModifier(e, 'Ctrl') ? this.settings.secondaryNavigationStrategy : this.settings.primaryNavigationStrategy
+						if(navigation_strategy === 'PAN'){
 							active_canvas?.panTo(bbox.minX + (bbox.maxX - bbox.minX) / 2, bbox.minY + (bbox.maxY - bbox.minY) / 2)
-						}else{
+						}else if(navigation_strategy === 'ZOOM'){
 							active_canvas?.zoomToBbox(bbox)
 						}
 					}
@@ -702,6 +707,36 @@ class CanvasMinimapSettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.drawActiveViewport)
 				.onChange(async (value) => {
 					this.plugin.settings.drawActiveViewport = value;
+					await this.plugin.saveSettings();
+				}));
+		
+		new Setting(containerEl)
+			.setName('Primary navigation strategy')
+			.setDesc('Primary navigation strategy (Directly click on minimap)')
+			.addDropdown(dropdown => dropdown
+				.addOptions({
+					'PAN': 'Pan',
+					'ZOOM': 'Zoom',
+					'NONE': 'None'
+				})
+				.setValue(this.plugin.settings.primaryNavigationStrategy)
+				.onChange(async (value) => {
+					this.plugin.settings.primaryNavigationStrategy = value as CanvasNavigationStrategy;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Secondary navigation strategy')
+			.setDesc('Secondary navigation strategy (Ctrl + click on minimap)')
+			.addDropdown(dropdown => dropdown
+				.addOptions({
+					'PAN': 'Pan',
+					'ZOOM': 'Zoom',
+					'NONE': 'None'
+				})
+				.setValue(this.plugin.settings.secondaryNavigationStrategy)
+				.onChange(async (value) => {
+					this.plugin.settings.secondaryNavigationStrategy = value as CanvasNavigationStrategy;
 					await this.plugin.saveSettings();
 				}));
 	}
