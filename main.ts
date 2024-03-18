@@ -333,7 +333,7 @@ export default class CanvasMinimap extends Plugin {
 			.attr('width', canvas_bbox.maxX - canvas_bbox.minX)
 			.attr('height', canvas_bbox.maxY - canvas_bbox.minY)
 			.attr('fill', 'azure')
-			.attr('alpha', '0.5')
+			.attr('fill-opacity', '0.1')
 			.attr('stroke', 'orange')
 			.attr('stroke-width', '12')
 	}
